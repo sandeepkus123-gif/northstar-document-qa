@@ -26,6 +26,17 @@ QUERY_PREAMBLE = re.compile(
     flags=re.I,
 )
 
+QUERY_TRAILING_INSTRUCTION = re.compile(
+    r"\s*(?:please\s+)?(?:"
+    r"use\s+(?:only\s+)?(?:the\s+)?(?:local|provided|available)?\s*(?:documents|docs)|"
+    r"answer\s+(?:using|from|based\s+on)\s+(?:only\s+)?(?:the\s+)?"
+    r"(?:local|provided|available)?\s*(?:documents|docs)|"
+    r"refer\s+to\s+(?:only\s+)?(?:the\s+)?(?:local|provided|available)?\s*"
+    r"(?:documents|docs)"
+    r")[.!]*\s*$",
+    flags=re.I,
+)
+
 STOP_WORDS = {
     "a",
     "an",
@@ -159,6 +170,7 @@ def tokenize(text: str) -> list[str]:
 def tokenize_query(text: str) -> list[str]:
     """Tokenize a question and normalize a few common user intents."""
     text = QUERY_PREAMBLE.sub("", text)
+    text = QUERY_TRAILING_INSTRUCTION.sub("", text)
     lowered = text.casefold()
     tokens = tokenize(text)
 
