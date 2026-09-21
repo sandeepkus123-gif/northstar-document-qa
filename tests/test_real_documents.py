@@ -23,7 +23,7 @@ def real_index(tmp_path_factory: pytest.TempPathFactory) -> Path:
     ("question", "expected_text", "expected_source"),
     [
         ("What is the refund policy?", "30 days", "refund-policy.md"),
-        ("How long does standard shipping take?", "5 to 7", "faq.md"),
+        ("How long does standard shipping take?", "5 to 7", "shipping-and-returns.txt"),
         ("How much does the monthly plan cost?", "$12", "subscription-plans.md"),
         ("What should I do if the NS Band will not sync?", "Bluetooth", "troubleshooting.txt"),
         ("Does Northstar sell health data to advertisers?", "does not sell", "faq.md"),

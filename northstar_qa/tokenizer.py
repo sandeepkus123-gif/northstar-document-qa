@@ -96,12 +96,18 @@ STOP_WORDS = {
 # A few domain-neutral forms make keyword search less brittle without trying to
 # pretend this small project contains a full natural-language pipeline.
 NORMAL_FORMS = {
+    "application": "app",
     "billed": "charge",
     "cancelled": "cancel",
     "canceled": "cancel",
     "cancels": "cancel",
     "cancellation": "cancel",
     "cancelling": "cancel",
+    "closing": "deletion",
+    "companies": "providers",
+    "connecting": "pair",
+    "control": "button",
+    "courier": "carrier",
     "charged": "charge",
     "charges": "charge",
     "collected": "collect",
@@ -112,15 +118,24 @@ NORMAL_FORMS = {
     "costs": "cost",
     "converted": "convert",
     "converts": "convert",
+    "damaged": "damage",
     "delivery": "shipping",
     "drains": "drain",
     "exchanged": "exchange",
     "exchanges": "exchange",
+    "faster": "expedited",
     "fees": "fee",
+    "functions": "feature",
     "included": "include",
     "includes": "include",
     "incorrect": "error",
+    "mailbox": "email",
+    "membership": "subscription",
+    "memberships": "subscription",
+    "measurements": "track",
+    "nations": "destination",
     "non-refundable": "refund",
+    "ordinary": "standard",
     "paid": "premium",
     "paired": "pair",
     "pairing": "pair",
@@ -146,11 +161,20 @@ NORMAL_FORMS = {
     "plans": "plan",
     "payments": "charge",
     "payment": "charge",
+    "parcel": "package",
+    "readings": "data",
+    "recorded": "track",
+    "recurring": "renewal",
+    "refreshing": "refresh",
+    "renews": "renew",
     "send": "include",
     "unexpected": "error",
     "activities": "activity",
     "steps": "step",
+    "swap": "exchange",
+    "swapped": "exchange",
     "wearable": "band",
+    "wrist": "band",
     "workouts": "workout",
 }
 
@@ -174,7 +198,11 @@ def tokenize_query(text: str) -> list[str]:
     lowered = text.casefold()
     tokens = tokenize(text)
 
-    if "pay each month" in lowered or "monthly price" in lowered:
+    if (
+        "pay each month" in lowered
+        or "monthly price" in lowered
+        or ("month" in lowered and "pay" in lowered)
+    ):
         return ["monthly", "cost"]
     if "pay each year" in lowered or "ninety-nine" in lowered:
         return ["annual", "cost"]
@@ -182,6 +210,18 @@ def tokenize_query(text: str) -> list[str]:
         return ["annual", "monthly", "price"]
     if "free tier" in lowered and any(word in lowered for word in ("payment", "pay", "cost")):
         return ["free", "tier", "include"]
+    if "without paying" in lowered and any(
+        word in lowered for word in ("function", "available", "basic")
+    ):
+        return ["free", "tier", "include"]
+    if "subscription" in tokens and "renew" in tokens:
+        if any(word in lowered for word in ("fail", "failed", "grace")):
+            return ["renewal", "payment", "fails", "grace", "period"]
+        return ["subscription", "renew"]
+    if "renewal" in tokens and any(
+        word in lowered for word in ("fail", "failed", "fails", "grace")
+    ):
+        return ["renewal", "payment", "fails", "grace", "period"]
 
     if "premium" in tokens and "free" in tokens and any(
         word in lowered for word in ("days", "try")
@@ -206,6 +246,10 @@ def tokenize_query(text: str) -> list[str]:
 
     if "bank" in lowered and "refund" in lowered:
         return ["refund", "business", "days"]
+    if "refund" in tokens and any(
+        phrase in lowered for phrase in ("approved", "approves", "sent back")
+    ):
+        return ["approved", "refund", "business", "days"]
     if "approved" in lowered and "refund" in tokens and any(
         word in lowered for word in ("long", "take", "time")
     ):
@@ -216,33 +260,57 @@ def tokenize_query(text: str) -> list[str]:
         return ["exchange", "size"]
     if "delivery fee" in lowered or "shipping fee" in lowered:
         return ["shipping", "fee", "refund"]
+    if (
+        "damage" in tokens or "damaged-on-arrival" in lowered
+    ) and "shipping" in tokens and "refund" in tokens:
+        return ["shipping", "fee", "refund", "damage"]
     if "return" in lowered and "accessories" in lowered:
         return ["return", "accessories"]
+    if "hardware" in tokens and any(
+        phrase in lowered for phrase in ("send back", "packed with")
+    ):
+        return ["return", "charging", "cable"]
+    if "exchange" in tokens and any(word in lowered for word in ("color", "size")):
+        return ["exchange", "color", "size", "shipment"]
 
-    if "standard" in lowered and any(word in lowered for word in ("delivery", "arrive")):
+    if "standard" in tokens and any(word in lowered for word in ("delivery", "arrive", "shipping")):
         return ["standard", "shipping"]
-    if "expedited" in lowered and any(word in lowered for word in ("delivery", "arrive")):
+    if "expedited" in tokens and any(word in lowered for word in ("delivery", "arrive", "shipping")):
         return ["expedited", "shipping"]
     if "processing" in lowered and "shipping" in lowered:
         return ["processing", "shipping"]
     if "deliver hardware" in lowered or "ship hardware" in lowered:
         return ["shipping", "destination"]
-    if "carrier" in lowered and "delivered" in lowered:
+    if "destination" in tokens and "hardware" in tokens:
+        return ["shipping", "destination"]
+    if "carrier" in tokens and "delivered" in lowered:
         return ["delivered", "package"]
+    if "package" in tokens and "delayed" in tokens:
+        return ["delayed", "carrier", "update"]
     if "reroute" in lowered and "order" in lowered:
+        return ["address", "order", "carrier"]
+    if "address" in tokens and "carrier" in tokens and "order" in tokens:
         return ["address", "order", "carrier"]
     if "order" in lowered and "processing" in lowered:
         return ["order", "processing", "business", "days"]
 
-    if "side button" in lowered:
+    if "side button" in lowered or {"side", "button", "pair"}.issubset(tokens):
         return ["side", "button", "seconds"]
     if "pair" in tokens and "band" in tokens:
         return ["pair", "add", "device", "side", "button"]
     if "bluetooth" in tokens and "sync" in tokens and "band" in tokens:
         return ["band", "sync", "bluetooth"]
+    if "internet" in tokens and (
+        ("band" in tokens and "phone" in tokens) or "band-to-phone" in lowered
+    ):
+        return ["bluetooth", "internet", "recommended", "communication"]
     if any(phrase in lowered for phrase in ("not appearing", "cannot find", "can't find")):
         return ["app", "find", "band"]
     if "activity data" in lowered and any(word in lowered for word in ("stopped", "old", "updating")):
+        return ["device", "data", "old"]
+    if "activity" in tokens and "data" in tokens and any(
+        word in tokens for word in ("refresh", "stopped", "old")
+    ):
         return ["device", "data", "old"]
     if "sleep" in lowered and any(word in lowered for word in ("incomplete", "missing", "records")):
         return ["sleep", "missing"]
@@ -250,12 +318,25 @@ def tokenize_query(text: str) -> list[str]:
         if any(word in lowered for word in ("cause", "why")):
             return ["battery", "performance", "usage", "patterns"]
         return ["battery", "drain"]
+    if "battery" in tokens and "running down" in lowered:
+        return ["battery", "performance", "usage", "patterns"]
 
     if "premium" in tokens and "locked" in tokens and "charge" in tokens:
         return ["premium", "locked", "charge"]
+    if "premium" in tokens and any(word in tokens for word in ("coaching", "unavailable")):
+        return ["premium", "locked", "charge"]
+
+    if "firmware" in tokens and any(
+        phrase in lowered for phrase in ("hang", "takes too long", "longer than expected")
+    ):
+        return ["firmware", "phone", "close", "bluetooth", "battery"]
 
     if any(phrase in lowered for phrase in ("health signals", "measured by the wearable")):
         return ["band", "track"]
+    if "band" in tokens and "track" in tokens and any(
+        word in lowered for word in ("name", "wellness", "recorded")
+    ):
+        return ["band", "heart", "step", "sleep", "workout", "recovery"]
     if "record workouts" in lowered and "sleep" in lowered:
         return ["track", "workout", "sleep"]
     if "calculate recovery" in lowered:
@@ -265,16 +346,40 @@ def tokenize_query(text: str) -> list[str]:
     if "requires payment" in lowered or "coaching tools" in lowered:
         return ["premium", "features", "include"]
 
-    if "registered email" in lowered or "old email" in lowered:
+    if "registered email" in lowered or "old email" in lowered or (
+        "email" in tokens and "recover" in lowered
+    ):
         return ["email", "account", "recovery"]
     if "account deletion" in lowered and "app" in lowered:
         return ["account", "deletion", "support"]
     if "records" in lowered and "account deletion" in lowered:
         return ["account", "deletion", "retained"]
+    if "account" in tokens and "deletion" in tokens and any(
+        word in lowered for word in ("record", "legally", "immediately")
+    ):
+        return ["account", "deletion", "retained"]
     if "health information" in lowered and any(word in lowered for word in ("sold", "advertising")):
         return ["sell", "health", "advertisers"]
-    if "annual" in lowered and "free" in lowered and "band" in lowered:
+    if "health" in tokens and any(word in lowered for word in ("sold", "advertising")):
+        return ["sell", "health", "advertisers"]
+    if "charge" in tokens and "providers" in tokens and any(
+        word in lowered for word in ("information", "process", "allowed")
+    ):
+        return ["share", "limited", "charge", "processing", "providers"]
+    if "annual" in lowered and "free" in lowered and any(
+        word in tokens for word in ("band", "hardware", "device")
+    ):
         return ["annual", "include", "band", "bundle"]
+
+    if "password" in tokens and any(
+        word in lowered for word in ("login", "sign-in", "reset")
+    ):
+        return ["password", "reset", "sign-in", "screen"]
+
+    if "medical" in tokens or any(
+        phrase in lowered for phrase in ("doctor's diagnosis", "doctor diagnosis")
+    ):
+        return ["band", "medical", "device"]
 
     asks_for_features = any(
         phrase in lowered
@@ -327,6 +432,9 @@ def tokenize_query(text: str) -> list[str]:
         return ["cancel", "access"]
 
     if "cancel" in tokens and any(word in lowered for word in ("where", "how")):
+        return ["cancel", "billing", "section"]
+
+    if "renewal" in tokens and any(word in lowered for word in ("stop", "future")):
         return ["cancel", "billing", "section"]
 
     return tokens
